@@ -45,7 +45,7 @@ export function LocationSection({ endereco, cidade, embedUrl }: LocationSectionP
 
         <div className="bg-zinc-50 rounded-3xl overflow-hidden shadow-xl border border-zinc-100 flex flex-col md:flex-row">
           
-          <div className="w-full md:w-1/2 min-h-[300px] md:min-h-[400px]">
+          <div className="w-full md:w-1/2 h-[360px] sm:h-[450px] md:h-auto min-h-[360px] md:min-h-[480px]">
             <iframe 
               src={getMapSrc()}
               width="100%" 

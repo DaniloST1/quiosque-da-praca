@@ -53,16 +53,16 @@ export function Footer({ config, secoes = [] }: FooterProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
 
           {/* Brand */}
-          <div className="space-y-4">
+          <div className="space-y-4 text-center md:text-left flex flex-col items-center md:items-start">
             {config.id ? (
-              <a href="#inicio" className="flex items-start">
+              <a href="#inicio" className="flex items-center md:items-start justify-center md:justify-start">
                 <EditableImage
                   src={config.logo_escuro || config.logo_principal || null}
                   table="configuracoes"
                   field="logo_escuro"
                   id={config.id}
                   bucket="logos"
-                  className="flex items-start"
+                  className="flex items-center md:items-start justify-center md:justify-start"
                 >
                   {config.logo_escuro || config.logo_principal ? (
                     <img src={config.logo_escuro || config.logo_principal || undefined} alt="Logo" className="h-10 w-auto object-contain cursor-pointer opacity-80 hover:opacity-100 transition-opacity" />
@@ -84,10 +84,10 @@ export function Footer({ config, secoes = [] }: FooterProps) {
                 </h3>
               )
             )}
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-zinc-400 max-w-xs">
               O sabor que reúne amigos e família em um ambiente descontraído.
             </p>
-            <div className="flex flex-col gap-2 pt-2">
+            <div className="flex flex-col items-center md:items-start gap-2 pt-2">
               {config.instagram_handle && (
                 <a href={`https://instagram.com/${config.instagram_handle.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
                   <ExternalLink className="w-4 h-4" />
@@ -104,10 +104,10 @@ export function Footer({ config, secoes = [] }: FooterProps) {
           </div>
 
           {/* Contact */}
-          <div className="space-y-4">
+          <div className="space-y-4 text-center md:text-left flex flex-col items-center md:items-start">
             <h4 className="text-white font-bold text-lg font-heading">Contato</h4>
-            <ul className="space-y-3 text-sm">
-              <li className="flex items-start gap-3">
+            <ul className="space-y-3 text-sm flex flex-col items-center md:items-start">
+              <li className="flex flex-col sm:flex-row items-center md:items-start gap-2 sm:gap-3 text-center md:text-left">
                 <MapPin className="w-5 h-5 text-[var(--color-primary)] shrink-0" />
                 <span>
                   {config.id ? (
@@ -120,7 +120,7 @@ export function Footer({ config, secoes = [] }: FooterProps) {
                   )}
                 </span>
               </li>
-              <li className="flex items-center gap-3">
+              <li className="flex items-center justify-center md:justify-start gap-2 sm:gap-3">
                 <Phone className="w-5 h-5 text-[var(--color-primary)] shrink-0" />
                 <span>
                   {config.id ? (
@@ -134,7 +134,7 @@ export function Footer({ config, secoes = [] }: FooterProps) {
           </div>
 
           {/* Hours */}
-          <div className="space-y-4">
+          <div className="space-y-4 text-center md:text-left flex flex-col items-center md:items-start">
             <h4 className="text-white font-bold text-lg font-heading">Horários</h4>
             {config.id ? (
               <EditableHours
@@ -144,9 +144,9 @@ export function Footer({ config, secoes = [] }: FooterProps) {
                 id={config.id}
               />
             ) : (
-              <ul className="space-y-3 text-sm">
+              <ul className="space-y-3 text-sm flex flex-col items-center md:items-start">
                 {config.horarios?.map((h: any, i: number) => (
-                  <li key={i} className="flex items-start gap-3">
+                  <li key={i} className="flex flex-col sm:flex-row items-center md:items-start gap-1 sm:gap-3 text-center md:text-left">
                     <Clock className="w-5 h-5 text-[var(--color-primary)] shrink-0" />
                     <div>
                       <span className="block font-medium capitalize text-zinc-200">
@@ -163,9 +163,9 @@ export function Footer({ config, secoes = [] }: FooterProps) {
           </div>
 
           {/* Links */}
-          <div className="space-y-4">
+          <div className="space-y-4 text-center md:text-left flex flex-col items-center md:items-start">
             <h4 className="text-white font-bold text-lg font-heading">Links Rápidos</h4>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 text-sm text-center md:text-left">
               {navLinks.map((link) => (
                 <li key={link.label}>
                   <a href={link.href} className="hover:text-white transition-colors">
