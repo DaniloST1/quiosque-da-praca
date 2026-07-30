@@ -49,25 +49,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthModalOpen(false);
   };
 
-  const fetchClientePerfil = async (userId: string) => {
+  const fetchClientePerfil = async (userId: string, userObj?: User | null) => {
     try {
       const { data, error } = await supabase
         .from('clientes')
         .select('*')
         .eq('auth_user_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (!error && data) {
+      if (data) {
         setCliente(data);
+      } else if (userObj) {
+        const meta = userObj.user_metadata || {};
+        const nome = meta.full_name || meta.name || userObj.email?.split('@')[0] || 'Cliente';
+        const { data: newCliente } = await supabase
+          .from('clientes')
+          .insert({
+            auth_user_id: userObj.id,
+            nome,
+            email: userObj.email,
+            foto_url: meta.avatar_url || meta.picture || null,
+          })
+          .select()
+          .single();
+
+        if (newCliente) {
+          setCliente(newCliente);
+        }
       }
     } catch (e) {
-      console.error('Erro ao buscar perfil do cliente:', e);
+      console.error('Erro ao buscar/criar perfil do cliente:', e);
     }
   };
 
   const refreshCliente = async () => {
     if (user) {
-      await fetchClientePerfil(user.id);
+      await fetchClientePerfil(user.id, user);
     }
   };
 
@@ -77,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchClientePerfil(session.user.id);
+        fetchClientePerfil(session.user.id, session.user);
       }
       setLoading(false);
     });
@@ -87,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchClientePerfil(session.user.id);
+        await fetchClientePerfil(session.user.id, session.user);
       } else {
         setCliente(null);
       }

@@ -1,18 +1,56 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get('code');
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get('code');
+  const next = searchParams.get('next') ?? '/minha-conta';
 
   if (code) {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const cookieStore = await cookies();
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
+        },
+      }
     );
-    await supabase.auth.exchangeCodeForSession(code);
+
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error && data.session?.user) {
+      const user = data.session.user;
+
+      // Garantir que exista um perfil na tabela 'clientes'
+      const { data: cliente } = await supabase
+        .from('clientes')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (!cliente) {
+        const meta = user.user_metadata || {};
+        const nome = meta.full_name || meta.name || user.email?.split('@')[0] || 'Cliente';
+        await supabase.from('clientes').insert({
+          auth_user_id: user.id,
+          nome,
+          email: user.email,
+          foto_url: meta.avatar_url || meta.picture || null,
+        });
+      }
+    }
   }
 
-  // Redireciona o usuário para a página inicial ou minha conta
-  return NextResponse.redirect(`${requestUrl.origin}/minha-conta`);
+  return NextResponse.redirect(`${origin}${next}`);
 }
