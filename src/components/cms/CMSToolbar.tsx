@@ -1,7 +1,7 @@
 'use client';
 import { useCMSStore } from '@/lib/store';
 import { useCMS } from '@/hooks/useCMS';
-import { Settings, LogOut, Loader2, Check, LayoutDashboard, LogIn } from 'lucide-react';
+import { Settings, LogOut, Loader2, Check, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -17,19 +17,9 @@ export function CMSToolbar() {
     router.refresh();
   };
 
-  // Not logged in: show a subtle admin login button
+  // Not logged in: don't show the floating admin button
   if (!store.currentUserId) {
-    return (
-      <div className="fixed bottom-4 right-4 z-50">
-        <Link
-          href="/admin/login"
-          className="flex items-center gap-1.5 bg-zinc-800/80 backdrop-blur-md text-zinc-400 hover:text-white text-xs px-3 py-2 rounded-full shadow-lg border border-zinc-700 transition-all hover:bg-zinc-800"
-        >
-          <LogIn className="w-3.5 h-3.5" />
-          Admin
-        </Link>
-      </div>
-    );
+    return null;
   }
 
   return (
