@@ -10,17 +10,19 @@ import {
   User,
   LogOut,
   ChevronLeft,
+  Star,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 
 const NAV_ITEMS = [
-  { href: '/minha-conta',           label: 'Dashboard',    icon: LayoutDashboard },
-  { href: '/minha-conta/pedidos',   label: 'Meus Pedidos', icon: ShoppingBag },
-  { href: '/minha-conta/enderecos', label: 'Endereços',    icon: MapPin },
-  { href: '/minha-conta/favoritos', label: 'Favoritos',    icon: Heart },
-  { href: '/minha-conta/perfil',    label: 'Meu Perfil',   icon: User },
+  { href: '/minha-conta',             label: 'Dashboard',    icon: LayoutDashboard },
+  { href: '/minha-conta/pedidos',     label: 'Meus Pedidos', icon: ShoppingBag },
+  { href: '/minha-conta/enderecos',   label: 'Endereços',    icon: MapPin },
+  { href: '/minha-conta/favoritos',   label: 'Favoritos',    icon: Heart },
+  { href: '/minha-conta/avaliacoes',  label: 'Avaliações',   icon: Star },
+  { href: '/minha-conta/perfil',      label: 'Meu Perfil',   icon: User },
 ];
 
 interface MinhaContaSidebarProps {

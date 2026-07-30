@@ -13,11 +13,15 @@ interface ReviewsSectionProps {
 export function ReviewsSection({ avaliacoes }: ReviewsSectionProps) {
   const [showAll, setShowAll] = useState(false);
 
-  if (avaliacoes.length === 0) return null;
+  // Prioriza destaques; se não houver, usa todas as publicadas
+  const destaques = avaliacoes.filter((a: any) => a.destaque_site);
+  const lista = destaques.length > 0 ? destaques : avaliacoes;
 
-  const averageRating = (avaliacoes.reduce((acc, cur) => acc + cur.nota, 0) / avaliacoes.length).toFixed(1);
+  if (lista.length === 0) return null;
 
-  const displayedReviews = showAll ? avaliacoes : avaliacoes.slice(0, 9);
+  const averageRating = (lista.reduce((acc, cur) => acc + cur.nota, 0) / lista.length).toFixed(1);
+
+  const displayedReviews = showAll ? lista : lista.slice(0, 9);
 
   return (
     <section id="avaliacoes" className="py-20 bg-[var(--color-bg)]">

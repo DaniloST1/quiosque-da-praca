@@ -21,6 +21,7 @@ import {
   MapPin,
   Eye,
   Users,
+  Star,
 } from 'lucide-react';
 
 interface NavGroup {
@@ -51,6 +52,7 @@ const navGroups: NavGroup[] = [
     label: 'Gestão',
     items: [
       { label: 'Clientes', href: '/admin/clientes', icon: Users },
+      { label: 'Avaliações', href: '/admin/vitrine/avaliacoes', icon: Star },
       { label: 'Estoque', href: '/admin/estoque', icon: Boxes },
       { label: 'Compras', href: '/admin/compras', icon: ShoppingCart },
       { label: 'Financeiro', href: '/admin/financeiro', icon: DollarSign },
