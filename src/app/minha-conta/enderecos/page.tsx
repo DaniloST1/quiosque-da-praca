@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Plus, Trash2, CheckCircle2, Home, Briefcase, Map } from 'lucide-react';
+import { MapPin, Plus, Trash2, CheckCircle2, Home, Briefcase, Map, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 interface Endereco {
@@ -36,6 +36,7 @@ export default function EnderecosPage() {
   const [cidade, setCidade] = useState('São Paulo');
   const [estado, setEstado] = useState('SP');
   const [principal, setPrincipal] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const fetchEnderecos = async () => {
     const clienteId = cliente?.id;
@@ -63,10 +64,10 @@ export default function EnderecosPage() {
         const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
         const data = await res.json();
         if (!data.erro) {
-          setLogradouro(data.logradouro);
-          setBairro(data.bairro);
-          setCidade(data.localidade);
-          setEstado(data.uf);
+          setLogradouro(data.logradouro || '');
+          setBairro(data.bairro || '');
+          setCidade(data.localidade || 'São Paulo');
+          setEstado(data.uf || 'SP');
         }
       } catch {}
     }
@@ -74,44 +75,68 @@ export default function EnderecosPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cliente?.id) return;
+    setErrorMsg('');
+    if (!cliente?.id) {
+      setErrorMsg('Sessão inválida. Por favor faça login novamente.');
+      return;
+    }
+
     setSaving(true);
 
-    const payload = {
-      cliente_id: cliente.id,
-      apelido,
-      cep,
-      logradouro,
-      numero,
-      complemento: complemento || null,
-      bairro,
-      cidade,
-      estado,
-      principal,
-    };
+    try {
+      const res = await fetch('/api/clientes/enderecos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_id: cliente.id,
+          apelido,
+          cep,
+          logradouro,
+          numero,
+          complemento: complemento || null,
+          bairro,
+          cidade,
+          estado,
+          principal,
+        }),
+      });
 
-    const { error } = await supabase.from('cliente_enderecos').insert(payload);
+      const json = await res.json();
 
-    setSaving(false);
-    if (error) {
-      alert('Erro ao salvar endereço: ' + error.message);
-    } else {
-      setIsFormOpen(false);
-      // Reset form
-      setCep(''); setLogradouro(''); setNumero(''); setComplemento(''); setBairro('');
-      fetchEnderecos();
+      if (!res.ok || json.error) {
+        setErrorMsg(json.error || 'Erro ao salvar endereço.');
+      } else {
+        setIsFormOpen(false);
+        setCep('');
+        setLogradouro('');
+        setNumero('');
+        setComplemento('');
+        setBairro('');
+        setPrincipal(false);
+        fetchEnderecos();
+      }
+    } catch (err: any) {
+      setErrorMsg('Erro de conexão ao salvar endereço.');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja excluir este endereço?')) return;
-    await supabase.from('cliente_enderecos').delete().eq('id', id);
-    fetchEnderecos();
+    try {
+      await fetch(`/api/clientes/enderecos?id=${id}`, { method: 'DELETE' });
+      fetchEnderecos();
+    } catch {}
   };
 
   const handleSetPrincipal = async (id: string) => {
     if (!cliente?.id) return;
-    // O trigger PostgreSQL cuida de desmarcar os outros
+    await supabase
+      .from('cliente_enderecos')
+      .update({ principal: false })
+      .eq('cliente_id', cliente.id);
+
     await supabase
       .from('cliente_enderecos')
       .update({ principal: true })
@@ -127,19 +152,27 @@ export default function EnderecosPage() {
           <h1 className="text-xl font-bold text-zinc-900 font-heading">Meus Endereços</h1>
           <p className="text-xs text-zinc-500 mt-1">Gerencie os locais de entrega salvos no seu perfil.</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)} size="sm" className="gap-2">
+        <Button onClick={() => { setErrorMsg(''); setIsFormOpen(true); }} size="sm" className="gap-2">
           <Plus className="w-4 h-4" />
           Novo Endereço
         </Button>
       </div>
 
       {loading ? (
-        <div className="text-zinc-500 text-xs py-8 text-center">Carregando endereços...</div>
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
+        </div>
       ) : enderecos.length === 0 ? (
-        <div className="bg-white rounded-2xl p-8 text-center border border-zinc-200">
-          <MapPin className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
-          <p className="text-sm font-semibold text-zinc-700">Nenhum endereço cadastrado</p>
-          <p className="text-xs text-zinc-400 mt-1">Cadastre seus endereços para agilizar seus pedidos.</p>
+        <div className="bg-white rounded-2xl p-10 text-center border border-zinc-200 shadow-xs">
+          <MapPin className="w-14 h-14 text-zinc-300 mx-auto mb-3" />
+          <p className="text-base font-bold text-zinc-800">Nenhum endereço cadastrado</p>
+          <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto mb-5">
+            Cadastre seus endereços de entrega para agilizar seus pedidos na hora de finalizar a compra.
+          </p>
+          <Button onClick={() => { setErrorMsg(''); setIsFormOpen(true); }} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Cadastrar Primeiro Endereço
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -147,7 +180,7 @@ export default function EnderecosPage() {
             <div
               key={end.id}
               className={`bg-white rounded-2xl p-5 border transition-all ${
-                end.principal ? 'border-[var(--color-primary)] shadow-xs' : 'border-zinc-200'
+                end.principal ? 'border-[var(--color-primary)] shadow-xs ring-1 ring-[var(--color-primary)]/20' : 'border-zinc-200'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -164,7 +197,7 @@ export default function EnderecosPage() {
                 ) : (
                   <button
                     onClick={() => handleSetPrincipal(end.id)}
-                    className="text-xs text-zinc-400 hover:text-[var(--color-primary)] transition-colors"
+                    className="text-xs font-semibold text-zinc-400 hover:text-[var(--color-primary)] transition-colors"
                   >
                     Tornar principal
                   </button>
@@ -174,13 +207,13 @@ export default function EnderecosPage() {
               <p className="text-xs text-zinc-600 leading-relaxed">
                 {end.logradouro}, {end.numero} {end.complemento ? `- ${end.complemento}` : ''}<br />
                 {end.bairro} - {end.cidade}/{end.estado}<br />
-                CEP: {end.cep}
+                <span className="text-zinc-400">CEP: {end.cep}</span>
               </p>
 
               <div className="mt-4 pt-3 border-t border-zinc-100 flex justify-end">
                 <button
                   onClick={() => handleDelete(end.id)}
-                  className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors"
+                  className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Excluir
                 </button>
@@ -190,19 +223,31 @@ export default function EnderecosPage() {
         </div>
       )}
 
-      {/* Form Novo Endereço */}
+      {/* Modal Novo Endereço */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h2 className="text-lg font-bold text-zinc-900 font-heading">Novo Endereço</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-zinc-900 font-heading">Novo Endereço</h2>
+              <button onClick={() => setIsFormOpen(false)} className="text-zinc-400 hover:text-zinc-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {errorMsg && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium">
+                {errorMsg}
+              </div>
+            )}
+
             <form onSubmit={handleSave} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">Apelido</label>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1">Apelido</label>
                   <select
                     value={apelido}
                     onChange={(e) => setApelido(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl"
+                    className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   >
                     <option value="Casa">Casa</option>
                     <option value="Trabalho">Trabalho</option>
@@ -210,61 +255,75 @@ export default function EnderecosPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">CEP</label>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1">CEP *</label>
                   <input
                     type="text"
                     required
                     value={cep}
                     onChange={(e) => handleCEP(e.target.value)}
                     placeholder="00000-000"
-                    className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl"
+                    className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 mb-1">Rua / Logradouro</label>
+                <label className="block text-xs font-bold text-zinc-700 mb-1">Rua / Logradouro *</label>
                 <input
                   type="text"
                   required
                   value={logradouro}
                   onChange={(e) => setLogradouro(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl"
+                  placeholder="Ex: Av. Paulista"
+                  className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">Número</label>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1">Número *</label>
                   <input
                     type="text"
                     required
                     value={numero}
                     onChange={(e) => setNumero(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl"
+                    placeholder="123"
+                    className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">Complemento</label>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1">Complemento</label>
                   <input
                     type="text"
                     value={complemento}
                     onChange={(e) => setComplemento(e.target.value)}
-                    placeholder="Apto, Bloco, etc."
-                    className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl"
+                    placeholder="Apto 42, Bloco B"
+                    className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 mb-1">Bairro</label>
-                <input
-                  type="text"
-                  required
-                  value={bairro}
-                  onChange={(e) => setBairro(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1">Bairro *</label>
+                  <input
+                    type="text"
+                    required
+                    value={bairro}
+                    onChange={(e) => setBairro(e.target.value)}
+                    placeholder="Centro"
+                    className="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1">Cidade / UF</label>
+                  <input
+                    type="text"
+                    value={`${cidade}/${estado}`}
+                    disabled
+                    className="w-full text-xs p-2.5 bg-zinc-100 border border-zinc-200 rounded-xl text-zinc-500"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-2">
@@ -273,9 +332,9 @@ export default function EnderecosPage() {
                   id="principalCheck"
                   checked={principal}
                   onChange={(e) => setPrincipal(e.target.checked)}
-                  className="rounded border-zinc-300 text-[var(--color-primary)]"
+                  className="rounded border-zinc-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                 />
-                <label htmlFor="principalCheck" className="text-xs text-zinc-700 font-medium">
+                <label htmlFor="principalCheck" className="text-xs text-zinc-700 font-semibold cursor-pointer">
                   Definir como endereço principal
                 </label>
               </div>
@@ -284,7 +343,8 @@ export default function EnderecosPage() {
                 <Button type="button" variant="outline" size="sm" onClick={() => setIsFormOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={saving} size="sm">
+                <Button type="submit" disabled={saving} size="sm" className="gap-1.5">
+                  {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {saving ? 'Salvar...' : 'Salvar Endereço'}
                 </Button>
               </div>
