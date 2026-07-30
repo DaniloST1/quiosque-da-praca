@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { createAdminClient } from '@/lib/supabase';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -31,9 +32,10 @@ export async function GET(request: Request) {
 
     if (!error && data.session?.user) {
       const user = data.session.user;
+      const adminSupabase = createAdminClient();
 
       // Garantir que exista um perfil na tabela 'clientes'
-      const { data: cliente } = await supabase
+      const { data: cliente } = await adminSupabase
         .from('clientes')
         .select('id')
         .eq('auth_user_id', user.id)
@@ -42,7 +44,7 @@ export async function GET(request: Request) {
       if (!cliente) {
         const meta = user.user_metadata || {};
         const nome = meta.full_name || meta.name || user.email?.split('@')[0] || 'Cliente';
-        await supabase.from('clientes').insert({
+        await adminSupabase.from('clientes').insert({
           auth_user_id: user.id,
           nome,
           email: user.email,

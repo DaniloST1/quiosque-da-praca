@@ -20,7 +20,7 @@ interface Endereco {
 }
 
 export default function EnderecosPage() {
-  const { cliente } = useAuth();
+  const { cliente, user } = useAuth();
   const [enderecos, setEnderecos] = useState<Endereco[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,13 +39,24 @@ export default function EnderecosPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const fetchEnderecos = async () => {
-    const clienteId = cliente?.id;
-    if (!clienteId) return;
+    let cId = cliente?.id;
+    if (!cId && user?.id) {
+      const { data: c } = await supabase
+        .from('clientes')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+      if (c) cId = c.id;
+    }
+    if (!cId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const { data } = await supabase
       .from('cliente_enderecos')
       .select('*')
-      .eq('cliente_id', clienteId)
+      .eq('cliente_id', cId)
       .order('principal', { ascending: false });
 
     if (data) setEnderecos(data);
@@ -54,7 +65,7 @@ export default function EnderecosPage() {
 
   useEffect(() => {
     fetchEnderecos();
-  }, [cliente?.id]);
+  }, [cliente?.id, user?.id]);
 
   const handleCEP = async (val: string) => {
     const clean = val.replace(/\D/g, '');
@@ -76,7 +87,7 @@ export default function EnderecosPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
-    if (!cliente?.id) {
+    if (!cliente?.id && !user?.id) {
       setErrorMsg('Sessão inválida. Por favor faça login novamente.');
       return;
     }
@@ -88,7 +99,8 @@ export default function EnderecosPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cliente_id: cliente.id,
+          cliente_id: cliente?.id || null,
+          auth_user_id: user?.id || null,
           apelido,
           cep,
           logradouro,

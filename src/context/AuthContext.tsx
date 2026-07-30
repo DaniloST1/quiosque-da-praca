@@ -51,31 +51,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchClientePerfil = async (userId: string, userObj?: User | null) => {
     try {
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('auth_user_id', userId)
-        .maybeSingle();
-
-      if (data) {
-        setCliente(data);
-      } else if (userObj) {
-        const meta = userObj.user_metadata || {};
-        const nome = meta.full_name || meta.name || userObj.email?.split('@')[0] || 'Cliente';
-        const { data: newCliente } = await supabase
-          .from('clientes')
-          .insert({
-            auth_user_id: userObj.id,
-            nome,
-            email: userObj.email,
-            foto_url: meta.avatar_url || meta.picture || null,
-          })
-          .select()
-          .single();
-
-        if (newCliente) {
-          setCliente(newCliente);
-        }
+      const res = await fetch('/api/clientes/me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          email: userObj?.email,
+          metadata: userObj?.user_metadata,
+        }),
+      });
+      const data = await res.json();
+      if (data.cliente) {
+        setCliente(data.cliente);
       }
     } catch (e) {
       console.error('Erro ao buscar/criar perfil do cliente:', e);
