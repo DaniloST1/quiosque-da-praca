@@ -25,12 +25,15 @@ export default async function proxy(request: NextRequest) {
     }
   );
 
+  // IMPORTANTE: Sempre chama getUser() para sincronizar os cookies de sessão do Supabase
+  // Isso é necessário para que o login via OAuth (Google) funcione corretamente após o redirecionamento
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-  const isLoginPage = request.nextUrl.pathname === '/admin/login';
+  const pathname = request.nextUrl.pathname;
+  const isAdminRoute = pathname.startsWith('/admin');
+  const isLoginPage = pathname === '/admin/login';
 
   // Se não autenticado e tentando acessar /admin (exceto /admin/login), redireciona para login
   if (isAdminRoute && !isLoginPage && !user) {
@@ -50,5 +53,14 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: [
+    /*
+     * Roda em todas as rotas exceto:
+     * - _next/static (arquivos estáticos)
+     * - _next/image (otimização de imagem)
+     * - favicon.ico
+     * - arquivos de imagem estáticos
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 };
