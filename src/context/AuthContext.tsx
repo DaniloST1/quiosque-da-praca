@@ -21,12 +21,14 @@ interface AuthContextType {
   session: Session | null;
   cliente: ClientePerfil | null;
   loading: boolean;
+  authError: string | null;
   openAuthModal: (mode?: 'login' | 'register') => void;
   closeAuthModal: () => void;
   isAuthModalOpen: boolean;
   authModalMode: 'login' | 'register';
   signOut: () => Promise<void>;
   refreshCliente: () => Promise<void>;
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [cliente, setCliente] = useState<ClientePerfil | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
@@ -47,6 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const closeAuthModal = () => {
     setIsAuthModalOpen(false);
+  };
+
+  const clearAuthError = () => {
+    setAuthError(null);
   };
 
   const fetchClientePerfil = async (userId: string, userObj?: User | null) => {
@@ -76,6 +83,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // Detecta erros de OAuth na URL hash (#error=...)
+    if (typeof window !== 'undefined' && window.location.hash.includes('error=')) {
+      try {
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const errDesc = params.get('error_description') || params.get('error');
+        if (errDesc) {
+          console.error('[Auth OAuth Error]:', errDesc);
+          setAuthError('Erro na autenticação com o Google. Por favor, verifique se o Client Secret no Supabase está correto.');
+        }
+        // Limpa a hash da URL sem recarregar a página
+        window.history.replaceState(null, '', window.location.pathname);
+      } catch (e) {}
+    }
+
     // Session inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -84,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchClientePerfil(session.user.id, session.user);
       }
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
 
     // Escuta mudanças de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -117,18 +139,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session,
         cliente,
         loading,
+        authError,
         openAuthModal,
         closeAuthModal,
         isAuthModalOpen,
         authModalMode,
         signOut,
         refreshCliente,
+        clearAuthError,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 }
+
+
 
 export function useAuth() {
   const context = useContext(AuthContext);

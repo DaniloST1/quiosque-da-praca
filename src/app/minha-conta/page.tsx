@@ -44,7 +44,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function MinhaContaDashboard() {
-  const { user, cliente, loading: authLoading } = useAuth();
+  const { user, cliente, loading: authLoading, authError, openAuthModal, clearAuthError } = useAuth();
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState({ totalPedidos: 0, totalGasto: 0 });
@@ -54,9 +54,34 @@ export default function MinhaContaDashboard() {
   const [avaliacoesPendentes, setAvaliacoesPendentes] = useState(0);
 
   useEffect(() => {
-    if (!cliente?.id) return;
-    loadAll(cliente.id);
-  }, [cliente?.id]);
+    if (authLoading) return;
+
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    if (cliente?.id) {
+      loadAll(cliente.id);
+    } else {
+      // Se user está logado mas cliente ainda não retornou id, carrega sugestões
+      loadSugestoesOnly();
+    }
+  }, [authLoading, user, cliente?.id]);
+
+  async function loadSugestoesOnly() {
+    try {
+      const { data: bestSellers } = await supabase
+        .from('produtos')
+        .select('id, nome, preco, imagem, descricao')
+        .eq('best_seller', true)
+        .eq('ativo', true)
+        .limit(4);
+
+      setSugestoes(bestSellers || []);
+    } catch {}
+    setLoading(false);
+  }
 
   async function loadAll(clienteId: string) {
     setLoading(true);
@@ -90,7 +115,6 @@ export default function MinhaContaDashboard() {
             .sort((a, b) => b[1].quantidade - a[1].quantidade)
             .slice(0, 3);
 
-          // Busca imagens dos produtos
           const nomesTop = ordenados.map(([nome]) => nome);
           const { data: prods } = await supabase
             .from('produtos')
@@ -106,7 +130,6 @@ export default function MinhaContaDashboard() {
             imagem: imgMap[nome] || null,
           })));
 
-          // Pedidos que não foram avaliados ainda
           const { count } = await supabase
             .from('avaliacoes')
             .select('id', { count: 'exact', head: true })
@@ -115,15 +138,15 @@ export default function MinhaContaDashboard() {
         }
       }
 
-      // Sugestões de lanches (best_sellers que o cliente não pediu)
+      // Sugestões
       const { data: bestSellers } = await supabase
         .from('produtos')
         .select('id, nome, preco, imagem, descricao')
         .eq('best_seller', true)
         .eq('ativo', true)
-        .limit(6);
+        .limit(4);
 
-      setSugestoes(bestSellers?.slice(0, 4) || []);
+      setSugestoes(bestSellers || []);
     } catch (err) {
       console.error('Erro ao carregar dashboard:', err);
     } finally {
@@ -139,6 +162,26 @@ export default function MinhaContaDashboard() {
     );
   }
 
+  if (!user) {
+    return (
+      <div className="bg-white rounded-2xl p-10 border border-zinc-200 text-center shadow-xs max-w-md mx-auto my-12 space-y-4">
+        <div className="w-14 h-14 bg-orange-100 text-[var(--color-primary)] rounded-2xl flex items-center justify-center mx-auto">
+          <ShoppingBag className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-black text-zinc-900 font-heading">Você não está autenticado</h2>
+        <p className="text-sm text-zinc-500">
+          Entre na sua conta para visualizar seus pedidos, pontos e endereços cadastrados.
+        </p>
+        <button
+          onClick={() => openAuthModal('login')}
+          className="w-full py-3 px-6 bg-[var(--color-primary)] text-white font-bold rounded-xl hover:bg-[var(--color-secondary)] transition-colors"
+        >
+          Entrar ou Criar Conta
+        </button>
+      </div>
+    );
+  }
+
   const nomeCliente = cliente?.nome || user?.email?.split('@')[0] || 'Cliente';
   const primeiroNome = nomeCliente.split(' ')[0];
   const hora = new Date().getHours();
@@ -146,6 +189,13 @@ export default function MinhaContaDashboard() {
 
   return (
     <div className="space-y-6">
+      {authError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between text-red-700 text-sm">
+          <span>{authError}</span>
+          <button onClick={clearAuthError} className="font-bold underline text-xs ml-2">Fechar</button>
+        </div>
+      )}
+
       {/* Boas Vindas */}
       <div className="bg-gradient-to-br from-[var(--color-primary)] to-orange-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
