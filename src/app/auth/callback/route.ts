@@ -28,29 +28,37 @@ export async function GET(request: Request) {
       }
     );
 
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    try {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error && data.session?.user) {
-      const user = data.session.user;
-      const adminSupabase = createAdminClient();
-
-      // Garantir que exista um perfil na tabela 'clientes'
-      const { data: cliente } = await adminSupabase
-        .from('clientes')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      if (!cliente) {
-        const meta = user.user_metadata || {};
-        const nome = meta.full_name || meta.name || user.email?.split('@')[0] || 'Cliente';
-        await adminSupabase.from('clientes').insert({
-          auth_user_id: user.id,
-          nome,
-          email: user.email,
-          foto_url: meta.avatar_url || meta.picture || null,
-        });
+      if (error) {
+        console.error('[Auth Callback Error]:', error.message);
       }
+
+      if (data?.session?.user) {
+        const user = data.session.user;
+        const adminSupabase = createAdminClient();
+
+        // Garantir que exista um perfil na tabela 'clientes'
+        const { data: cliente } = await adminSupabase
+          .from('clientes')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+
+        if (!cliente) {
+          const meta = user.user_metadata || {};
+          const nome = meta.full_name || meta.name || user.email?.split('@')[0] || 'Cliente';
+          await adminSupabase.from('clientes').insert({
+            auth_user_id: user.id,
+            nome,
+            email: user.email,
+            foto_url: meta.avatar_url || meta.picture || null,
+          });
+        }
+      }
+    } catch (e: any) {
+      console.error('[Auth Callback Exception]:', e?.message || e);
     }
   }
 
